@@ -9,13 +9,44 @@ package cs480project;
  *
  * @author Aileen
  */
-public class LogSystem extends javax.swing.JFrame {
 
+
+import java.awt.BorderLayout;
+import java.util.ArrayList;
+import java.util.List;
+ 
+import javax.swing.JFrame;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingUtilities;
+import javax.swing.table.TableModel;
+public class LogSystem extends javax.swing.JFrame {
+    private JTable logTable;
     /**
      * Creates new form LogSystem
      */
     public LogSystem() {
+        super("Log Event Manager");
+ 
+ 
+        List<Log> listEmployees = createListLogs();
+        TableModel tableModel = new LogTableModel(listEmployees);
+        logTable = new JTable(tableModel);
+ 
+        logTable.setAutoCreateRowSorter(true);
+ 
+        add(new JScrollPane(logTable), BorderLayout.CENTER);
+ 
+        pack();
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
         initComponents();
+    }
+    
+    public List<Log> createListLogs() {
+        List<Log> listLogs = new ArrayList<>();
+        // code to add dummy data here...
+        return listLogs;
     }
 
     /**
@@ -28,8 +59,6 @@ public class LogSystem extends javax.swing.JFrame {
     private void initComponents() {
 
         jMenuItem1 = new javax.swing.JMenuItem();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        jTable1 = new javax.swing.JTable();
 
         jMenuItem1.setText("jMenuItem1");
 
@@ -38,31 +67,15 @@ public class LogSystem extends javax.swing.JFrame {
         setMinimumSize(new java.awt.Dimension(800, 800));
         setPreferredSize(new java.awt.Dimension(800, 800));
 
-        jTable1.setModel(new javax.swing.table.DefaultTableModel(
-            new Object [][] {
-
-            },
-            new String [] {
-
-            }
-        ));
-        jScrollPane1.setViewportView(jTable1);
-
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(179, 179, 179)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 600, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+            .addGap(0, 800, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGap(28, 28, 28)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 494, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(278, Short.MAX_VALUE))
+            .addGap(0, 800, Short.MAX_VALUE)
         );
 
         pack();
@@ -106,7 +119,5 @@ public class LogSystem extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem jMenuItem1;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JTable jTable1;
     // End of variables declaration//GEN-END:variables
 }
