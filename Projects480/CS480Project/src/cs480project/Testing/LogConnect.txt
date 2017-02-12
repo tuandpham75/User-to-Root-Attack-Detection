@@ -1,0 +1,80 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package cs480project;
+
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.util.StringTokenizer;
+import javax.swing.JOptionPane;
+
+/**
+ *
+ * @author Ricky
+ */
+class LogConnect {
+    Connection conn = null;
+    PreparedStatement pst = null;
+        public static Connection ConnectDB(){
+        try{
+            Class.forName("org.sqlite.JDBC");
+            Connection conn = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\Ricky\\Documents\\LinuxLogs.sqlite");
+            System.out.println("Connected Succesfully!");
+            return conn;
+        } catch(Exception e) {
+            JOptionPane.showMessageDialog(null,e);
+            return null;
+        }
+    }
+        
+    public void readFile(){
+        StringTokenizer st; 
+        String delim = "]:";
+        try{
+        FileInputStream fstream = new FileInputStream("C:\\Users\\Ricky\\Documents\\auths.log");
+        BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+        String strLine;
+        /* read log line by line */
+       br.readLine();
+       strLine = null;
+
+        while ((strLine = br.readLine()) != null)   {
+            /* parse strLine to obtain what you want */
+
+            //st = new StringTokenizer( strLine, delim );
+            String[] tokens = strLine.split( delim );
+            String[] firstHalfToken = tokens[0].split(" ");
+            sendToDatabase( firstHalfToken, tokens[1] );
+            
+        }
+        System.out.println("done!");
+        fstream.close();
+        br.close();
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+    
+    public void sendToDatabase( String[] array, String secondHalf ){
+        try{
+            String sql = "Insert into LinuxEventLogs (Month, Day, Time, User, Drive, Event) values (?, ?, ?, ?, ?, ?)";
+            pst = conn.prepareStatement(sql);
+                pst.setString( 1, array[0]);
+                pst.setString( 2, array[1]);
+                pst.setString( 3, array[2]);
+                pst.setString( 4, array[3]);
+                pst.setString( 5, array[4] + "]");
+                pst.setString( 6, secondHalf);
+                pst.execute();
+               // System.out.println("added" + array[4]);
+        } catch ( Exception e ){
+            System.out.println("im the problem y'all" + e.toString());
+        }
+    }
+}
