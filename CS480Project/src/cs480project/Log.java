@@ -12,16 +12,16 @@ package cs480project;
 public class Log {
     private int rowid;
     private String month;
-    private int day;
+    private int date;
     private String time;
     private String user;
     private String drive;
     private String event;
  
-    public Log(String month, int day, String time, String user, String drive, String event) {
+    public Log(String month, int date, String time, String user, String drive, String event) {
         this.rowid = rowid;
         this.month = month;
-        this.day = day;
+        this.date = date;
         this.time = time;
         this.user = user;
         this.drive = drive;
@@ -36,8 +36,8 @@ public class Log {
         this.month = month;
     }
 
-    public void setDay(int day) {
-        this.day = day;
+    public void setDate(int date) {
+        this.date = date;
     }
 
     public void setTime(String time) {
@@ -64,8 +64,8 @@ public class Log {
         return month;
     }
 
-    public int getDay() {
-        return day;
+    public int getDate() {
+        return date;
     }
 
     public String getTime() {

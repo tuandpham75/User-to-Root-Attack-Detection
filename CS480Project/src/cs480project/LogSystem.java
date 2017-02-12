@@ -20,17 +20,33 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.table.TableModel;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.sql.*;
+import java.util.StringTokenizer;
+import javax.swing.JOptionPane;
+import net.proteanit.sql.DbUtils;
+
+
 public class LogSystem extends javax.swing.JFrame {
     private JTable logTable;
+    Connection conn = null;
+    PreparedStatement pst = null;
+    ResultSet rs = null;
+    /**
+     * Creates new form LogSystem
+     */
     /**
      * Creates new form LogSystem
      */
     public LogSystem() {
         super("Log Event Manager");
+        conn = LogConnect.ConnectDB();
+        readFile();
  
- 
-        List<Log> listEmployees = createListLogs();
-        TableModel tableModel = new LogTableModel(listEmployees);
+        List<Log> listLogs = createListLogs();
+        TableModel tableModel = new LogTableModel(listLogs);
         logTable = new JTable(tableModel);
  
         logTable.setAutoCreateRowSorter(true);
@@ -41,11 +57,82 @@ public class LogSystem extends javax.swing.JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         initComponents();
+//        conn = LogConnect.ConnectDB();
+//        readFile();
+    }
+    
+    private void update_Table(){
+        try{
+            String sql = "select * from LinuxEventLogs";
+            pst = conn.prepareStatement(sql);
+            rs = pst.executeQuery();
+            logTable.setModel(DbUtils.resultSetToTableModel(rs));
+        }catch(Exception e){
+            JOptionPane.showMessageDialog(null, e);
+        }
+    }
+    
+    public void readFile(){
+        StringTokenizer st; 
+        String delim = "]:";
+        try{
+        FileInputStream fstream = new FileInputStream("C:\\Users\\Aileen\\Documents\\NetBeansProjects\\CS480Project\\src\\auth2.log");
+        BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+        String strLine;
+        /* read log line by line */
+       //br.readLine();
+       //strLine = null;
+
+        while ((strLine = br.readLine()) != null)   {
+            /* parse strLine to obtain what you want */
+
+//            st = new StringTokenizer( strLine, delim );
+            String[] tokens = strLine.split( delim );
+            String[] firstHalfToken = tokens[0].split(" ");
+            sendToDatabase( firstHalfToken, tokens[1] );
+
+            
+        }
+        System.out.println("done!");
+        fstream.close();
+        br.close();
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        }
+    }
+    
+    public void sendToDatabase( String[] array, String secondHalf ){
+        try{
+            String sql = "INSERT INTO LinuxEventLogs (Month,Date,Time,User,Drive,Event) VALUES(?,?,?,?,?,?)";
+            pst = conn.prepareStatement(sql);
+                pst.setString( 1, array[0]);
+                pst.setInt( 2, Integer.parseInt(array[1]));
+                pst.setString( 3, array[2]);
+                pst.setString( 4, array[3]);
+                pst.setString( 5, array[4] + "]");
+                pst.setString( 6, secondHalf);
+                pst.executeUpdate();
+                //update_Table();
+               // System.out.println("added" + array[4]);
+        } catch ( Exception e ){
+            System.out.println("im the problem y'all" + e.toString());
+        }
     }
     
     public List<Log> createListLogs() {
         List<Log> listLogs = new ArrayList<>();
-        // code to add dummy data here...
+        String query = "SELECT * FROM `LinuxEventLogs`";
+        Statement st;
+        try{
+            st = conn.createStatement();
+            rs = st.executeQuery(query);
+            Log log;
+            while(rs.next()){
+                log = new Log(rs.getString("Month"),rs.getInt("Date"),rs.getString("Time"),rs.getString("User"),rs.getString("Drive"),rs.getString("Event"));
+                listLogs.add(log);
+            }
+        }catch(Exception e){
+        }
         return listLogs;
     }
 

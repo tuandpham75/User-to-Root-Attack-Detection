@@ -67,7 +67,7 @@ public class LogTableModel extends AbstractTableModel {
             returnValue = log.getMonth();
             break;
         case COLUMN_DAY:
-            returnValue = log.getDay();
+            returnValue = log.getDate();
             break;
         case COLUMN_TIME:
             returnValue = log.getTime();
