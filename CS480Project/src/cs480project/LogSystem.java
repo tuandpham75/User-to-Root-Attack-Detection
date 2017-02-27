@@ -10,11 +10,12 @@ package cs480project;
  * @author Aileen
  */
 
-
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.List;
- 
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -25,7 +26,10 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.sql.*;
 import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JOptionPane;
+import javax.swing.table.TableCellRenderer;
 import net.proteanit.sql.DbUtils;
 
 
@@ -47,18 +51,39 @@ public class LogSystem extends javax.swing.JFrame {
  
         List<Log> listLogs = createListLogs();
         TableModel tableModel = new LogTableModel(listLogs);
-        logTable = new JTable(tableModel);
- 
+        logTable = new JTable(tableModel) {
+        public Component prepareRenderer(TableCellRenderer renderer, int Index_row, int Index_col) {
+            Component comp = super.prepareRenderer(renderer, Index_row, Index_col);
+            if (!isRowSelected(Index_row)) {
+                if(getValueAt(Index_row, Index_col).toString().contains("Failed password for root")) {  
+                    comp.setBackground(Color.YELLOW);  
+                }
+                else if(getValueAt(Index_row, Index_col).toString().contains("Disconnecting")) {  
+                    comp.setBackground(Color.RED);  
+                }
+                else {
+                    comp.setBackground(Color.white);
+                }
+            }
+            return comp;
+        }};
         logTable.setAutoCreateRowSorter(true);
- 
-        add(new JScrollPane(logTable), BorderLayout.CENTER);
- 
+        logTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        logTable.getColumnModel().getColumn(0).setPreferredWidth(50);
+        logTable.getColumnModel().getColumn(1).setPreferredWidth(50);
+        logTable.getColumnModel().getColumn(2).setPreferredWidth(80);
+        logTable.getColumnModel().getColumn(3).setPreferredWidth(50);
+        logTable.getColumnModel().getColumn(4).setPreferredWidth(100);
+        logTable.getColumnModel().getColumn(5).setPreferredWidth(680);
+        
+        JScrollPane scrollPane = new JScrollPane(logTable);
+        
+        scrollPane.setPreferredSize(new Dimension(1031,600));
+        add(scrollPane, BorderLayout.CENTER);
         pack();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         initComponents();
-//        conn = LogConnect.ConnectDB();
-//        readFile();
     }
     
     private void update_Table(){
@@ -76,22 +101,14 @@ public class LogSystem extends javax.swing.JFrame {
         StringTokenizer st; 
         String delim = "]:";
         try{
-        FileInputStream fstream = new FileInputStream("C:\\Users\\Aileen\\Documents\\NetBeansProjects\\CS480Project\\src\\auth2.log");
+        FileInputStream fstream = new FileInputStream("C:\\Users\\Tuan Pham\\Documents\\SOFTWARE DEV\\Projects480\\CS480Project\\src\\auth2.log");
         BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
         String strLine;
-        /* read log line by line */
-       //br.readLine();
-       //strLine = null;
 
         while ((strLine = br.readLine()) != null)   {
-            /* parse strLine to obtain what you want */
-
-//            st = new StringTokenizer( strLine, delim );
             String[] tokens = strLine.split( delim );
             String[] firstHalfToken = tokens[0].split(" ");
-            sendToDatabase( firstHalfToken, tokens[1] );
-
-            
+            sendToDatabase( firstHalfToken, tokens[1] );          
         }
         System.out.println("done!");
         fstream.close();
@@ -146,28 +163,86 @@ public class LogSystem extends javax.swing.JFrame {
     private void initComponents() {
 
         jMenuItem1 = new javax.swing.JMenuItem();
+        clearButton = new javax.swing.JButton();
+        attackButton = new javax.swing.JButton();
 
         jMenuItem1.setText("jMenuItem1");
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setMaximumSize(new java.awt.Dimension(800, 800));
         setMinimumSize(new java.awt.Dimension(800, 800));
-        setPreferredSize(new java.awt.Dimension(800, 800));
+
+        clearButton.setText("Clear Logs");
+        clearButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                clearButtonActionPerformed(evt);
+            }
+        });
+
+        attackButton.setText("Check For Attacks");
+        attackButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                attackButtonActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 800, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap(407, Short.MAX_VALUE)
+                .addComponent(attackButton)
+                .addGap(50, 50, 50)
+                .addComponent(clearButton, javax.swing.GroupLayout.PREFERRED_SIZE, 119, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(123, 123, 123))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 800, Short.MAX_VALUE)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap(263, Short.MAX_VALUE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(clearButton)
+                    .addComponent(attackButton))
+                .addGap(21, 21, 21))
         );
 
         pack();
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
+
+    private void clearButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearButtonActionPerformed
+        try {
+            // TODO add your handling code here:
+            Statement stmt = conn.createStatement();
+            String sql = "DELETE FROM LinuxEventLogs";
+            stmt.executeUpdate(sql);
+            update_Table();
+        } catch (SQLException ex) {
+            Logger.getLogger(LogSystem.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_clearButtonActionPerformed
+
+    private void attackButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_attackButtonActionPerformed
+        // TODO add your handling code here:
+        int warnings = 0;
+        int fatal = 0;
+        ArrayList<Object> logArray = new ArrayList<Object>();
+        for (int i = 0; i < logTable.getRowCount(); i++) {
+            
+            logArray.add(logTable.getModel().getValueAt(i, 5)); 
+        }
+        for (int i = 0; i < logArray.size(); i++) {
+            if (logArray.get(i).toString().contains("Failed password for root")) {
+                    warnings++;     
+            }
+            if (logArray.get(i).toString().contains("Disconnecting")) {
+                    fatal++;
+            }
+        }
+       JOptionPane.showMessageDialog(null,
+        "Security warnings: " + warnings + "\nFatal Attacks: " + fatal, "Security Concerns", JOptionPane.PLAIN_MESSAGE);
+    }//GEN-LAST:event_attackButtonActionPerformed
 
     /**
      * @param args the command line arguments
@@ -205,6 +280,8 @@ public class LogSystem extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton attackButton;
+    private javax.swing.JButton clearButton;
     private javax.swing.JMenuItem jMenuItem1;
     // End of variables declaration//GEN-END:variables
 }
