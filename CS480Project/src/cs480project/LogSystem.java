@@ -5,11 +5,6 @@
  */
 package cs480project;
 
-/**
- *
- * @author Aileen
- */
-
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
