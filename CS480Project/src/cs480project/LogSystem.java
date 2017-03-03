@@ -151,23 +151,6 @@ public class LogSystem extends javax.swing.JFrame {
             System.out.println("im the problem y'all" + e.toString());
         }
     }
-    
-    public List<Log> createListLogs() {
-        List<Log> listLogs = new ArrayList<>();
-        String query = "SELECT * FROM `LinuxEventLogs`";
-        Statement st;        
-        try{
-            st = conn.createStatement();
-            rs = st.executeQuery(query);
-            Log log;
-            while(rs.next()){
-                log = new Log(rs.getString("Month"),rs.getInt("Date"),rs.getString("Time"),rs.getString("User"),rs.getString("Drive"),rs.getString("Event"));
-                listLogs.add(log);
-            }
-        }catch(Exception e){
-        }
-        return listLogs;
-    }
 
     /**
      * This method is called from within the constructor to initialize the form.
