@@ -24,7 +24,7 @@ class LogConnect {
         public static Connection ConnectDB(){
         try{
             Class.forName("org.sqlite.JDBC");
-            Connection conn = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\Aileen\\Documents\\NetBeansProjects\\CS480Project\\src\\LinuxLogs.sqlite");
+            Connection conn = DriverManager.getConnection("jdbc:sqlite:C:\\Users\\bhoang\\Documents\\User-to-Root-Attack-Detection\\CS480Project\\src\\LinuxLogs.sqlite");
             System.out.println("Connected Succesfully!");
             //readFile();
             return conn;
