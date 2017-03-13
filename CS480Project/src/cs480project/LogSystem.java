@@ -15,22 +15,17 @@ import java.util.List;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.SwingUtilities;
-import javax.swing.table.TableModel;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.sql.*;
-import java.util.Arrays;
 import java.util.StringTokenizer;
-import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import net.proteanit.sql.DbUtils;
@@ -40,6 +35,7 @@ public class LogSystem extends javax.swing.JFrame {
     Connection conn = null;
     PreparedStatement pst = null;
     ResultSet rs = null;
+    PopulateTableWorker worker = null;
     /**
      * Creates new form LogSystem
      */
@@ -79,6 +75,7 @@ public class LogSystem extends javax.swing.JFrame {
                     return comp;
                 }};
                 
+                //set up jtable display
                 logTable.setAutoCreateRowSorter(true);
                 logTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
                 logTable.getColumnModel().getColumn(0).setPreferredWidth(50);
@@ -98,7 +95,7 @@ public class LogSystem extends javax.swing.JFrame {
                 setLocationRelativeTo(null);
                 initComponents();
 
-                PopulateTableWorker worker = new PopulateTableWorker (model);
+                worker = new PopulateTableWorker (model);
                 worker.execute();
             }
         });
@@ -110,32 +107,36 @@ public class LogSystem extends javax.swing.JFrame {
             pst = conn.prepareStatement(sql);
             rs = pst.executeQuery();
             logTable.setModel(DbUtils.resultSetToTableModel(rs));
+            conn.close();
         }catch(Exception e){
             JOptionPane.showMessageDialog(null, e);
         }
     }
     
+    //parses through log file
     public void readFile(){
         StringTokenizer st; 
         String delim = "]:";
         try{
-        FileInputStream fstream = new FileInputStream("C:\\Users\\bhoang\\Documents\\User-to-Root-Attack-Detection\\CS480Project\\src\\auth2.log");
-        BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
-        String strLine;
+            FileInputStream fstream = new FileInputStream("C:\\Users\\Aileen\\Downloads\\User-to-Root-Attack-Detection-dynamically_update_table\\User-to-Root-Attack-Detection-dynamically_update_table\\CS480Project\\src\\auth2.log");
+            BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+            String strLine;
 
-        while ((strLine = br.readLine()) != null)   {
-            String[] tokens = strLine.split( delim );
-            String[] firstHalfToken = tokens[0].split(" ");
-            sendToDatabase( firstHalfToken, tokens[1] );          
-        }
-        System.out.println("done!");
-        fstream.close();
-        br.close();
+            while ((strLine = br.readLine()) != null)   {
+                String[] tokens = strLine.split( delim );
+                String[] firstHalfToken = tokens[0].split(" ");
+                sendToDatabase( firstHalfToken, tokens[1] );          
+            }
+            System.out.println("done!");
+            fstream.close();
+            br.close();
+            //conn.close();
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
         }
     }
     
+    //inputes array of values into database
     public void sendToDatabase( String[] array, String secondHalf ){
         try{
             String sql = "INSERT INTO LinuxEventLogs (Month,Date,Time,User,Drive,Event) VALUES(?,?,?,?,?,?)";
@@ -212,7 +213,8 @@ public class LogSystem extends javax.swing.JFrame {
 
     private void clearButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearButtonActionPerformed
         try {
-            // TODO add your handling code here:
+            // TODO add your handling code here
+            worker.close();
             Statement stmt = conn.createStatement();
             String sql = "DELETE FROM LinuxEventLogs";
             stmt.executeUpdate(sql);
@@ -284,51 +286,56 @@ public class LogSystem extends javax.swing.JFrame {
     private javax.swing.JMenuItem jMenuItem1;
     // End of variables declaration//GEN-END:variables
 }
-    //Background thread used to execute a long-running task
-    //dynamically adds rows from database to jtable
-    class PopulateTableWorker extends SwingWorker<DefaultTableModel, Object[]> {
- 
-        Connection conn = LogConnect.ConnectDB();
-        PreparedStatement pst = null;
-        ResultSet rs = null;
-        private final DefaultTableModel model;
-        String query = "SELECT * FROM 'LinuxEventLogs'";
-        Statement st;
+    
+//Background thread used to execute a long-running task
+//dynamically adds rows from database to jtable
+class PopulateTableWorker extends SwingWorker<DefaultTableModel, Object[]> {
+    Connection conn = LogConnect.ConnectDB();
+    PreparedStatement pst = null;
+    ResultSet rs = null;
+    private final DefaultTableModel model;
+    String query = "SELECT * FROM 'LinuxEventLogs'";
+    Statement st;
 
-        public PopulateTableWorker(DefaultTableModel model){
-          this.model = model;
-        }
+    public PopulateTableWorker(DefaultTableModel model){
+      this.model = model;
+    }
 
-        //function that runs in the background to update the table model 
-        //with rows from the database every 500 milliseconds
-        @Override
-        protected DefaultTableModel doInBackground() throws Exception {
-            
-            try{
-                st = conn.createStatement();
-                rs = st.executeQuery(query);
-                // While there are more rows
-                while(rs.next()){
-                  // Get the row from the slow source
-                  Object[] row = {rs.getString("Month"),rs.getInt("Date"),rs.getString("Time"),rs.getString("User"),rs.getString("Drive"),rs.getString("Event")};
-                  Thread.sleep(500);
+    //function that runs in the background to update the table model 
+    //with rows from the database every 500 milliseconds
+    @Override
+    protected DefaultTableModel doInBackground() throws Exception {
 
-                  // Update the model with the new row
-                  publish(row);
-                }
-            } catch(Exception e){
-                
+        try{
+            st = conn.createStatement();
+            rs = st.executeQuery(query);
+            // While there are more rows
+            while(rs.next()){
+              // Get the row from the slow source
+              Object[] row = {rs.getString("Month"),rs.getInt("Date"),rs.getString("Time"),rs.getString("User"),rs.getString("Drive"),rs.getString("Event")};
+              Thread.sleep(500);
+
+              // Update the model with the new row
+              publish(row);
             }
+        } catch(Exception e){
 
-          return model;
         }
 
-        //grabs information published from doInBackground() method 
-        //and adds the rows to the JTable
-        @Override
-        protected void process(List<Object[]> chunks){
-            for(Object[] row : chunks){
-                model.addRow(row);
-            }
+      return model;
+    }
+
+    //grabs information published from doInBackground() method 
+    //and adds the rows to the JTable
+    @Override
+    protected void process(List<Object[]> chunks){
+        for(Object[] row : chunks){
+            model.addRow(row);
         }
+    }
+    
+    //close connection to database
+    protected void close() throws SQLException{
+        conn.close();
+    }
 }
