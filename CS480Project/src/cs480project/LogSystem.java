@@ -9,13 +9,12 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.SwingUtilities;
-import javax.swing.table.TableModel;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
@@ -24,18 +23,19 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JOptionPane;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import net.proteanit.sql.DbUtils;
-
 
 public class LogSystem extends javax.swing.JFrame {
     private JTable logTable;
     Connection conn = null;
     PreparedStatement pst = null;
     ResultSet rs = null;
-    /**
-     * Creates new form LogSystem
-     */
+    PopulateTableWorker worker = null;
     /**
      * Creates new form LogSystem
      */
@@ -43,42 +43,62 @@ public class LogSystem extends javax.swing.JFrame {
         super("Log Event Manager");
         conn = LogConnect.ConnectDB();
         readFile();
- 
-        List<Log> listLogs = createListLogs();
-        TableModel tableModel = new LogTableModel(listLogs);
-        logTable = new JTable(tableModel) {
-        public Component prepareRenderer(TableCellRenderer renderer, int Index_row, int Index_col) {
-            Component comp = super.prepareRenderer(renderer, Index_row, Index_col);
-            if (!isRowSelected(Index_row)) {
-                if(getValueAt(Index_row, Index_col).toString().contains("Failed password for root")) {  
-                    comp.setBackground(Color.YELLOW);  
+        
+        //executes in the Event Dispatching Thread
+        EventQueue.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException ex) {
                 }
-                else if(getValueAt(Index_row, Index_col).toString().contains("Disconnecting")) {  
-                    comp.setBackground(Color.RED);  
-                }
-                else {
-                    comp.setBackground(Color.white);
-                }
+
+                DefaultTableModel model = new DefaultTableModel();
+                String header[] = new String[]{"Month","Date","Time","User","Drive","Event"};
+                model.setColumnIdentifiers(header);
+                
+                //custom Renderer that highlights events in case of security issues
+                logTable = new JTable(model) {
+                public Component prepareRenderer(TableCellRenderer renderer, int Index_row, int Index_col) {
+                    Component comp = super.prepareRenderer(renderer, Index_row, Index_col);
+                    if (!isRowSelected(Index_row)) {
+                        if(getValueAt(Index_row, Index_col).toString().contains("Failed password for root")) {  
+                            comp.setBackground(Color.YELLOW);  
+                        }
+                        else if(getValueAt(Index_row, Index_col).toString().contains("Disconnecting")) {  
+                            comp.setBackground(Color.RED);  
+                        }
+                        else {
+                            comp.setBackground(Color.white);
+                        }
+                    }
+                    return comp;
+                }};
+                
+                //set up jtable display
+                logTable.setAutoCreateRowSorter(true);
+                logTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+                logTable.getColumnModel().getColumn(0).setPreferredWidth(50);
+                logTable.getColumnModel().getColumn(1).setPreferredWidth(50);
+                logTable.getColumnModel().getColumn(2).setPreferredWidth(80);
+                logTable.getColumnModel().getColumn(3).setPreferredWidth(50);
+                logTable.getColumnModel().getColumn(4).setPreferredWidth(100);
+                logTable.getColumnModel().getColumn(5).setPreferredWidth(680);
+                
+                JScrollPane scrollPane = new JScrollPane(logTable);
+        
+                scrollPane.setPreferredSize(new Dimension(1031,600));
+                add(scrollPane, BorderLayout.CENTER);
+
+                pack();
+                setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                setLocationRelativeTo(null);
+                initComponents();
+
+                worker = new PopulateTableWorker (model);
+                worker.execute();
             }
-            return comp;
-        }};
-        logTable.setAutoCreateRowSorter(true);
-        logTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-        logTable.getColumnModel().getColumn(0).setPreferredWidth(50);
-        logTable.getColumnModel().getColumn(1).setPreferredWidth(50);
-        logTable.getColumnModel().getColumn(2).setPreferredWidth(80);
-        logTable.getColumnModel().getColumn(3).setPreferredWidth(50);
-        logTable.getColumnModel().getColumn(4).setPreferredWidth(100);
-        logTable.getColumnModel().getColumn(5).setPreferredWidth(680);
-        
-        JScrollPane scrollPane = new JScrollPane(logTable);
-        
-        scrollPane.setPreferredSize(new Dimension(1031,600));
-        add(scrollPane, BorderLayout.CENTER);
-        pack();
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        initComponents();
+        });
     }
     
     private void update_Table(){
@@ -87,32 +107,36 @@ public class LogSystem extends javax.swing.JFrame {
             pst = conn.prepareStatement(sql);
             rs = pst.executeQuery();
             logTable.setModel(DbUtils.resultSetToTableModel(rs));
+            conn.close();
         }catch(Exception e){
             JOptionPane.showMessageDialog(null, e);
         }
     }
     
+    //parses through log file
     public void readFile(){
         StringTokenizer st; 
         String delim = "]:";
         try{
-        FileInputStream fstream = new FileInputStream("C:\\Users\\Tuan Pham\\Documents\\SOFTWARE DEV\\Projects480\\CS480Project\\src\\auth2.log");
-        BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
-        String strLine;
+            FileInputStream fstream = new FileInputStream("C:\\Users\\Aileen\\Documents\\CS480\\User-to-Root-Attack-Detection-dynamically_update_table\\CS480Project\\src\\auth2.log");
+            BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+            String strLine;
 
-        while ((strLine = br.readLine()) != null)   {
-            String[] tokens = strLine.split( delim );
-            String[] firstHalfToken = tokens[0].split(" ");
-            sendToDatabase( firstHalfToken, tokens[1] );          
-        }
-        System.out.println("done!");
-        fstream.close();
-        br.close();
+            while ((strLine = br.readLine()) != null)   {
+                String[] tokens = strLine.split( delim );
+                String[] firstHalfToken = tokens[0].split(" ");
+                sendToDatabase( firstHalfToken, tokens[1] );          
+            }
+            System.out.println("done!");
+            fstream.close();
+            br.close();
+            //conn.close();
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
         }
     }
     
+    //inputes array of values into database
     public void sendToDatabase( String[] array, String secondHalf ){
         try{
             String sql = "INSERT INTO LinuxEventLogs (Month,Date,Time,User,Drive,Event) VALUES(?,?,?,?,?,?)";
@@ -124,28 +148,9 @@ public class LogSystem extends javax.swing.JFrame {
                 pst.setString( 5, array[4] + "]");
                 pst.setString( 6, secondHalf);
                 pst.executeUpdate();
-                //update_Table();
-               // System.out.println("added" + array[4]);
         } catch ( Exception e ){
             System.out.println("im the problem y'all" + e.toString());
         }
-    }
-    
-    public List<Log> createListLogs() {
-        List<Log> listLogs = new ArrayList<>();
-        String query = "SELECT * FROM `LinuxEventLogs`";
-        Statement st;
-        try{
-            st = conn.createStatement();
-            rs = st.executeQuery(query);
-            Log log;
-            while(rs.next()){
-                log = new Log(rs.getString("Month"),rs.getInt("Date"),rs.getString("Time"),rs.getString("User"),rs.getString("Drive"),rs.getString("Event"));
-                listLogs.add(log);
-            }
-        }catch(Exception e){
-        }
-        return listLogs;
     }
 
     /**
@@ -160,11 +165,11 @@ public class LogSystem extends javax.swing.JFrame {
         jMenuItem1 = new javax.swing.JMenuItem();
         clearButton = new javax.swing.JButton();
         attackButton = new javax.swing.JButton();
+        stopButton = new javax.swing.JButton();
 
         jMenuItem1.setText("jMenuItem1");
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setMaximumSize(new java.awt.Dimension(800, 800));
         setMinimumSize(new java.awt.Dimension(800, 800));
 
         clearButton.setText("Clear Logs");
@@ -181,24 +186,34 @@ public class LogSystem extends javax.swing.JFrame {
             }
         });
 
+        stopButton.setText("Stop");
+        stopButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                stopButtonActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap(407, Short.MAX_VALUE)
+                .addContainerGap(622, Short.MAX_VALUE)
                 .addComponent(attackButton)
-                .addGap(50, 50, 50)
+                .addGap(29, 29, 29)
+                .addComponent(stopButton, javax.swing.GroupLayout.PREFERRED_SIZE, 140, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(34, 34, 34)
                 .addComponent(clearButton, javax.swing.GroupLayout.PREFERRED_SIZE, 119, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(123, 123, 123))
+                .addGap(35, 35, 35))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                .addContainerGap(263, Short.MAX_VALUE)
+                .addContainerGap(556, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(clearButton)
-                    .addComponent(attackButton))
+                    .addComponent(attackButton)
+                    .addComponent(stopButton))
                 .addGap(21, 21, 21))
         );
 
@@ -208,7 +223,8 @@ public class LogSystem extends javax.swing.JFrame {
 
     private void clearButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearButtonActionPerformed
         try {
-            // TODO add your handling code here:
+            // TODO add your handling code here
+            worker.close();
             Statement stmt = conn.createStatement();
             String sql = "DELETE FROM LinuxEventLogs";
             stmt.executeUpdate(sql);
@@ -238,6 +254,14 @@ public class LogSystem extends javax.swing.JFrame {
        JOptionPane.showMessageDialog(null,
         "Security warnings: " + warnings + "\nFatal Attacks: " + fatal, "Security Concerns", JOptionPane.PLAIN_MESSAGE);
     }//GEN-LAST:event_attackButtonActionPerformed
+
+    private void stopButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stopButtonActionPerformed
+        try {
+            worker.close();
+        } catch (SQLException ex) {
+            Logger.getLogger(LogSystem.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_stopButtonActionPerformed
 
     /**
      * @param args the command line arguments
@@ -278,5 +302,59 @@ public class LogSystem extends javax.swing.JFrame {
     private javax.swing.JButton attackButton;
     private javax.swing.JButton clearButton;
     private javax.swing.JMenuItem jMenuItem1;
+    private javax.swing.JButton stopButton;
     // End of variables declaration//GEN-END:variables
+}
+    
+//Background thread used to execute a long-running task
+//dynamically adds rows from database to jtable
+class PopulateTableWorker extends SwingWorker<DefaultTableModel, Object[]> {
+    Connection conn = LogConnect.ConnectDB();
+    PreparedStatement pst = null;
+    ResultSet rs = null;
+    private final DefaultTableModel model;
+    String query = "SELECT * FROM 'LinuxEventLogs'";
+    Statement st;
+
+    public PopulateTableWorker(DefaultTableModel model){
+      this.model = model;
+    }
+
+    //function that runs in the background to update the table model 
+    //with rows from the database every 500 milliseconds
+    @Override
+    protected DefaultTableModel doInBackground() throws Exception {
+
+        try{
+            st = conn.createStatement();
+            rs = st.executeQuery(query);
+            // While there are more rows
+            while(rs.next()){
+              // Get the row from the slow source
+              Object[] row = {rs.getString("Month"),rs.getInt("Date"),rs.getString("Time"),rs.getString("User"),rs.getString("Drive"),rs.getString("Event")};
+              Thread.sleep(100);
+
+              // Update the model with the new row
+              publish(row);
+            }
+        } catch(Exception e){
+
+        }
+
+      return model;
+    }
+
+    //grabs information published from doInBackground() method 
+    //and adds the rows to the JTable
+    @Override
+    protected void process(List<Object[]> chunks){
+        for(Object[] row : chunks){
+            model.addRow(row);
+        }
+    }
+    
+    //close connection to database
+    protected void close() throws SQLException{
+        conn.close();
+    }
 }
